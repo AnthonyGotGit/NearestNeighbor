@@ -5,44 +5,46 @@ namespace NNC
 {
     internal class DataReaderService
     {
-        // Reads Binary data from file, and populate VehicleKdTreeNode list
         public static List<VehicleKdTreeNode> ReadBinaryData(string dataFilePath)
         {
-            ConcurrentBag<VehicleKdTreeNode> vehicleList = new ConcurrentBag<VehicleKdTreeNode>();
+            List<VehicleKdTreeNode> vehicleList = new List<VehicleKdTreeNode>();
             try
             {
-                int chunkSize = 1024 * 1024; // Adjust the chunk size as needed.
                 using (FileStream fs = new FileStream(dataFilePath, FileMode.Open, FileAccess.Read))
                 {
-                    long fileLength = fs.Length;
-                    List<Task> tasks = new List<Task>();
-
-                    for (long position = 0; position < fileLength; position += chunkSize)
+                    using (BinaryReader reader = new BinaryReader(fs))
                     {
-                        long chunkStart = position;
-                        long chunkEnd = Math.Min(chunkStart + chunkSize, fileLength);
-
-                        // Checks if the values are in the valid range.
-                        if (chunkStart < 0 || chunkEnd < 0)
+                        while (fs.Position < fs.Length)
                         {
-                            Console.WriteLine($"Invalid chunk values. Start: {chunkStart}, End: {chunkEnd}");
-                            break;
+                            var vehicleData = new VehicleKdTreeNode();
+                            vehicleData.VehicleId = reader.ReadInt32();
+
+                            // Read and populate the null-terminated ASCII string
+                            StringBuilder registrationBuilder = new StringBuilder();
+                            char nextChar;
+                            while ((nextChar = reader.ReadChar()) != '\0')
+                            {
+                                registrationBuilder.Append(nextChar);
+                            }
+                            vehicleData.VehicleRegistration = registrationBuilder.ToString();
+
+                            vehicleData.Latitude = reader.ReadSingle();
+                            vehicleData.Longitude = reader.ReadSingle();
+                            vehicleData.RecordedTimeUTC = reader.ReadUInt64();
+
+                            vehicleList.Add(vehicleData);
                         }
-
-                        tasks.Add(Task.Run(() => ReadChunk(vehicleList, fs, chunkStart, chunkEnd)));
                     }
-
-                    Task.WhenAll(tasks).Wait(); // Wait for all tasks to complete.
                 }
             }
             catch (Exception e)
             {
                 Console.WriteLine("An error occurred: " + e.Message);
             }
-            return vehicleList.ToList();
+            return vehicleList;
         }
 
-        private static void ReadChunk(ConcurrentBag<VehicleKdTreeNode> data, FileStream fs, long start, long end)
+            private static void ReadChunk(ConcurrentBag<VehicleKdTreeNode> data, FileStream fs, long start, long end)
         {
             try
             {
