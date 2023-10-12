@@ -1,4 +1,4 @@
-﻿namespace ModelsNamespace
+﻿namespace NNC
 {
     public class VehicleKdTreeNode
     {
